@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>会议中 - 轻会议 LiteMeet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/css/style.css">
+  <script>window.LM_BACKEND = location.origin;</script>
+  <!-- 独立前端服务器(3000/3001)会通过 /config.js 覆盖上面的默认后端地址 -->
+  <script src="/config.js"></script>
+  <!-- livekit-client UMD 作为全局对象，媒体控制器在 Room.vue 挂载后读取 window.LivekitClient -->
+  <script src="/vendor/livekit-client.umd.min.js"></script>
+</head>
+<body class="room">
+  <div id="app"></div>
+  <script type="module" src="/src/pages/room/main.js"></script>
+</body>
+</html>

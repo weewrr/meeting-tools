@@ -1,0 +1,33 @@
+server:
+  port: 5678
+
+spring:
+  application:
+    name: litemeet-backend
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/litemeet?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+# 自定义配置
+litemeet:
+  # HTTPS 端口（局域网设备访问音视频必需）
+  https-port: 5679
+  # 数据目录（相对工作目录，即项目根）
+  data-dir: data
+  # 会议号失效时长（秒）：会议解散后会议号在此时间内不可复用，到期自动释放
+  ended-room-ttl: 86400
+  # LiveKit SFU 媒体服务器（密钥须与 livekit/livekit.yaml 中 keys 一致）
+  livekit:
+    api-key: litemeet
+    api-secret: f973a6f7b89c90ee231df4913911aeb92054ec7064b994db
+    ws-url: ws://localhost:7880

@@ -1,0 +1,32 @@
+# 轻会议 LiteMeet - LiveKit SFU 媒体服务器配置
+# 信令端口 7880（WebSocket）；媒体：UDP 50000-60000 + TCP 7881
+port: 7880
+log_level: info
+
+rtc:
+  # 强制广告正确的局域网 IP（本机多网卡时避免广告虚拟网卡 IP 导致其他设备连不上）
+  # 若 WiFi 被路由器分配了新 IP，请同步更新此值（ipconfig 查看 WLAN IPv4）
+  node_ip: 192.168.31.220
+  # UDP 媒体端口范围（防火墙需放行）
+  port_range_start: 50000
+  port_range_end: 60000
+  # UDP 不可用时的 TCP 回退端口
+  tcp_port: 7881
+  # 纯局域网部署：广告本机网卡 IP 作为 ICE 候选，不依赖公网 STUN
+  use_external_ip: false
+  # 允许把本机内网 IP 作为候选（局域网设备直连）
+  advertise_internal_ip: true
+
+room:
+  # 单房间最大参会人数（SFU 架构可支撑更多，按需调整）
+  max_participants: 50
+  # 允许远程解除静音（配合主持人"解除全员静音"）
+  enable_remote_unmute: true
+
+# API Key / Secret（后端签发 JWT 时需一致）
+keys:
+  litemeet: f973a6f7b89c90ee231df4913911aeb92054ec7064b994db
+
+# 不启用内置 TURN（局域网直连已足够；公网部署时再开启）
+turn:
+  enabled: false
