@@ -356,8 +356,11 @@ def download_status():
 # ---------------- whisper-server 引擎进程 ----------------
 
 def _engine_running():
+    """引擎可用 = 本进程拉起且存活，或 8301 端口已被监听（外部进程拉起）"""
     with _engine_lock:
-        return _engine_proc is not None and _engine_proc.poll() is None
+        if _engine_proc is not None and _engine_proc.poll() is None:
+            return True
+    return port_open(ENGINE_PORT, 0.2)
 
 
 def start_engine(on_log=lambda line: None):
@@ -709,6 +712,8 @@ def serve(port=GATE_PORT, log_fn=lambda line: None):
     """启动网关（阻塞）；server-manager 以子进程方式运行本文件时走这里"""
     # staticmethod：避免 self.log_fn() 把实例绑定为第一个参数
     GatewayHandler.log_fn = staticmethod(log_fn)
+    # 预拉起转写引擎：首次加载模型需数秒，提前就绪避免首个转写请求长时间等待
+    threading.Thread(target=lambda: start_engine(on_log=log_fn), daemon=True).start()
     httpd = ThreadingHTTPServer(('0.0.0.0', port), GatewayHandler)
     log_fn('[网关] 语音转写服务已启动: http://0.0.0.0:%d/v1' % port)
     log_fn('[网关] 局域网地址: http://%s:%d/v1' % (lan_ip(), port))

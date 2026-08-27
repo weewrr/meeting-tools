@@ -18,8 +18,8 @@ import java.util.*;
 
 /**
  * 会议业务数据存 MySQL 版存储层。
- * 录制元数据 / 实时转写 / AI 摘要 / 应用配置全部落库（InnoDB），
- * 音频 / 录屏等原始媒体文件仍存本机 data/audio 目录。
+ * 录制元数据 / 实时转写 / AI 摘要 / 转写配置全部落库（InnoDB），
+ * 音频 / 录屏等原始媒体文件仍存本机 data/audio 目录；LLM 配置仅存前端本地。
  * 对外 API 与旧 JsonStore 完全一致，REST 控制器无需改动逻辑。
  * 构成本类时自动建表（IF NOT EXISTS），幂等可重复执行。
  */
@@ -36,11 +36,6 @@ public class JdbcRecordStore {
             "apiKey", "",
             "model", "whisper-1",
             "language", "zh"
-    );
-    private static final Map<String, Object> DEFAULT_LLM = Map.of(
-            "baseUrl", "https://api.openai.com/v1",
-            "apiKey", "",
-            "model", "gpt-4o-mini"
     );
 
     public JdbcRecordStore(DataSource ds, @Value("${litemeet.data-dir:data}") String dataDir) {
@@ -366,7 +361,6 @@ public class JdbcRecordStore {
     public Map<String, Object> loadConfig() {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("transcribe", readSection("transcribe", DEFAULT_TRANSCRIBE));
-        result.put("llm", readSection("llm", DEFAULT_LLM));
         return result;
     }
 
@@ -376,10 +370,6 @@ public class JdbcRecordStore {
             if (patch.get("transcribe") instanceof Map<?, ?> t) {
                 ((Map<String, Object>) cfg.get("transcribe")).putAll((Map<? extends String, ?>) t);
                 writeSection("transcribe", (Map<String, Object>) cfg.get("transcribe"));
-            }
-            if (patch.get("llm") instanceof Map<?, ?> l) {
-                ((Map<String, Object>) cfg.get("llm")).putAll((Map<? extends String, ?>) l);
-                writeSection("llm", (Map<String, Object>) cfg.get("llm"));
             }
         }
         return cfg;

@@ -238,6 +238,22 @@ class ServiceManager:
                 else:
                     self.emit_log(svc, '[警告] 设置 root 密码失败，可手动执行: '
                                        "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root';")
+        # 确保数据库存在（幂等）；表由后端启动时自动创建（CREATE TABLE IF NOT EXISTS）
+        if svc.state == 'running':
+            mysql = self.env.get('mysql')
+            if mysql and os.path.exists(mysql):
+                time.sleep(1.0)
+                r = subprocess.run(
+                    [mysql, '-uroot', '-proot', '-h127.0.0.1', '-P3306', '-e',
+                     "CREATE DATABASE IF NOT EXISTS litemeet "
+                     "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace',
+                    creationflags=NO_WINDOW,
+                )
+                if r.returncode == 0:
+                    self.emit_log(svc, '[就绪] 数据库 litemeet 已就绪（表由后端自动创建）')
+                else:
+                    self.emit_log(svc, '[提示] 数据库 litemeet 将由后端自动创建（需 root 有 CREATE 权限）')
 
     def _start_redis(self, svc):
         redis = self.resolve('redis')
@@ -423,24 +439,78 @@ class ServiceManager:
         self.emit('status', svc.sid)
         self.emit_log(svc, f'[停止] 正在停止 {svc.name}...')
         try:
-            pid = svc.proc.pid
-            if IS_WIN:
-                # Windows：npm/java 等会派生子进程，必须杀整棵进程树，否则子进程残留占用端口
-                subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
-                               capture_output=True, creationflags=NO_WINDOW)
+            if svc.proc is not None and svc.proc.poll() is None:
+                # 本程序启动的进程：杀整棵进程树，避免子进程残留占用端口
+                pid = svc.proc.pid
+                if IS_WIN:
+                    subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
+                                   capture_output=True, creationflags=NO_WINDOW)
+                else:
+                    svc.proc.terminate()
+                try:
+                    svc.proc.wait(timeout=6)
+                except subprocess.TimeoutExpired:
+                    svc.proc.kill()
+                    svc.proc.wait(timeout=5)
             else:
-                svc.proc.terminate()
-            try:
-                svc.proc.wait(timeout=6)
-            except subprocess.TimeoutExpired:
-                svc.proc.kill()
-                svc.proc.wait(timeout=5)
+                # 外部运行（端口被占用，但非本程序启动）：按端口找到占用进程并终止
+                self._stop_external(svc)
         except Exception as e:
             self.emit_log(svc, f'[警告] 停止进程异常: {e}')
         svc.proc = None
+        svc.external = False
         svc.state = 'stopped'
         self.emit_log(svc, f'[停止] {svc.name} 已停止')
         self.emit('status', svc.sid)
+
+    def _stop_external(self, svc):
+        """停止外部占用端口的进程：MySQL 先尝试优雅关闭（避免强杀损坏数据），其余直接强杀"""
+        pid = self._port_pid(svc.port)
+        if not pid:
+            self.emit_log(svc, '[提示] 未发现占用端口的进程（可能已停止）')
+            return
+        if svc.sid == 'mysql':
+            mysql = self.env.get('mysql')
+            if mysql and os.path.exists(mysql):
+                admin = os.path.join(os.path.dirname(mysql), 'mysqladmin.exe')
+                if os.path.exists(admin):
+                    try:
+                        r = subprocess.run([admin, '-uroot', '-proot', '-h127.0.0.1', 'shutdown'],
+                                           capture_output=True, text=True, encoding='utf-8',
+                                           errors='replace', creationflags=NO_WINDOW, timeout=10)
+                        if r.returncode == 0:
+                            self.emit_log(svc, f'[停止] 已优雅关闭外部 MySQL (PID {pid})')
+                            return
+                    except Exception:
+                        pass
+        if IS_WIN:
+            subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'],
+                           capture_output=True, creationflags=NO_WINDOW)
+        else:
+            try:
+                os.kill(pid, 9)
+            except (OSError, ProcessLookupError):
+                pass
+        self.emit_log(svc, f'[停止] 已终止外部进程 (PID {pid})')
+
+    def _port_pid(self, port):
+        """返回监听该端口的进程 PID；未找到返回 None"""
+        try:
+            out = subprocess.run(['netstat', '-ano'], capture_output=True,
+                                 text=True, encoding='utf-8', errors='replace',
+                                 creationflags=NO_WINDOW, timeout=5).stdout
+        except Exception:
+            return None
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and parts[0] == 'TCP':
+                try:
+                    local = parts[1]
+                    if local.endswith(f':{port}') and parts[3] in ('LISTENING', 'LISTEN'):
+                        return int(parts[4])
+                except (ValueError, IndexError):
+                    continue
+        return None
 
     def restart(self, sid):
         svc = self.services.get(sid)

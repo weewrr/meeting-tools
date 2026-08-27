@@ -55,7 +55,9 @@ async function load() {
 async function genSummary() {
   busySummary.value = true
   try {
-    record.value = await API.post(`/records/${id}/summary`)
+    // LLM 配置存于本机浏览器，随请求传给后端生成纪要
+    const llm = JSON.parse(localStorage.getItem('litemeet.llm') || '{}')
+    record.value = await API.post(`/records/${id}/summary`, { llm })
     await load()
     segment.value = 'summary'
     toast('纪要已生成', 'ok')

@@ -8,7 +8,7 @@
 - **屏幕共享**：含屏幕声音，多端自适应布局，支持铺满 / 适应切换与全屏
 - **会议录制**：两种模式——纯音频录音 / 录屏（视频 + 混合音频），结束后自动保存到本机并上传服务器供回放下载
 - **实时转写字幕**：会议中边说边转写，生成完整文字记录（由本地 Whisper 转写服务提供，模型 / 密钥可在服务器管理器「Key 管理」与「转写服务」页配置）
-- **AI 智能纪要**：会后一键生成结构化纪要（要点、决定、待办）（需配置 LLM 服务）
+- **AI 智能纪要**：会后一键生成结构化纪要（要点、决定、待办）（在浏览器「设置」页填写 LLM 服务，配置保存在本机浏览器，不落服务器）
 - **会议记录管理**：录音 / 录屏 / 转写 / 纪要统一管理，归属设备可见
 - **隐私安全**：数据只存本机，纯局域网直连，不依赖公网
 
@@ -19,7 +19,7 @@
 | 前端 | Vue 3 + Vite（多页应用）+ livekit-client（vendored UMD） | 构建产物 `frontend/dist/`，由后端 / 前端服务托管 |
 | 后端 | Spring Boot 3.3（Java 21） | REST API + WebSocket 信令 + LiveKit WSS 代理 + 静态文件托管 |
 | 媒体 | LiveKit SFU 服务器（`livekit/livekit-server.exe`） | 多人音视频转发，单层编码，低延迟 |
-| 存储 | MySQL + Redis + JSON 文件 | 会议生命周期（MySQL）、已结束会议号 TTL（Redis）、记录与配置（JSON） |
+| 存储 | MySQL + Redis + 本机目录 | 会议生命周期 / 记录 / 转写 / 纪要 / 转写配置（MySQL）、已结束会议号 TTL（Redis）、录音与录屏文件 / 证书（`data/` 目录）、LLM 配置（浏览器本地） |
 | 前端服务器 | `tools/FrontendServer.java`（JDK21 单文件） | 可选的本机独立静态服务（HTTP 3000 / HTTPS 3001） |
 
 ```
@@ -57,7 +57,7 @@ meeting-tools/
 │   │   │   ├── room/        会议房间（Room.vue + roomMedia.js）
 │   │   │   ├── records/     会议记录列表
 │   │   │   ├── record/      记录详情（播放 / 下载 / 转写 / 纪要）
-│   │   │   └── settings/    AI 服务配置
+│   │   │   └── settings/    转写与 AI 摘要服务配置（AI 摘要配置存浏览器本地）
 │   │   └── utils/common.js  通用工具（API、格式、身份标识）
 │   ├── public/              静态资源（css/js/vendor/livekit-client UMD）
 │   ├── index.html / room.html / records.html / record.html / settings.html  各页入口
@@ -143,7 +143,7 @@ meeting-tools/
 - **`livekit/livekit.yaml`**：媒体端口范围、房间人数上限、API Key/Secret、`node_ip`（重要，见快速开始）
 - **`backend/src/main/resources/application.yml`**：后端端口（5678）、HTTPS 端口（5679）、MySQL / Redis 连接、LiveKit 密钥与地址
 - **`transcribe-server/config.json`**：本地转写网关的密钥列表 / 限时开放时段 / 当前模型，由服务器管理器「Key 管理」「转写服务」页维护（模型文件在 `transcribe-server/models/`）
-- **`data/config.json`**：LLM 服务的 `apiKey` / `baseUrl` / `model`，可在前端"设置"页填写与测试；转写服务的连接信息（指向本地网关 `http://127.0.0.1:8300/v1`）也在此维护
+- **网页「设置」页**：转写服务配置（Base URL / API Key / 模型 / 语言，保存到 MySQL `litemeet_settings` 表，服务级共享）与 AI 摘要服务配置（Base URL / API Key / 模型，**仅保存在浏览器本地**，每个使用者互不影响）
 
 ## 常见问题
 

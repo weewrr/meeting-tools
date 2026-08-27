@@ -153,6 +153,21 @@ function openRecent(r) {
   }
 }
 
+// 清空本机「我参加过的会议」历史（仅影响本机浏览器记录，不影响数据库）
+function clearHistory() {
+  ElMessageBox.confirm(
+    '将清除本机浏览器中「我参加过的会议」记录。' +
+    '\n\n数据库中的会议记录不受影响；' +
+    '本机「已加入未录制」的条目会消失，数据库中已删除的会议也不会再显示。',
+    '清除本机会议历史',
+    { confirmButtonText: '清除', cancelButtonText: '取消', type: 'warning' }
+  ).then(() => {
+    localStorage.removeItem('litemeet.history')
+    loadRecent()
+    toast('已清除本机会议历史', 'ok')
+  }).catch(() => {})
+}
+
 // 分享链接进入（?room=会议号）：自动填入会议号
 const presetRoom = getParam('room')
 name.value = getUserName()
@@ -276,7 +291,10 @@ onMounted(() => {
     </div>
 
     <div class="recent-list">
-      <h3>最近会议记录</h3>
+      <div class="recent-head">
+        <h3>最近会议记录</h3>
+        <el-button v-if="recent.length" link type="danger" size="small" @click="clearHistory">清空本机历史</el-button>
+      </div>
       <div class="card">
         <el-empty v-if="!recent.length" description="暂无会议记录" :image-size="90" />
         <div v-else>
@@ -326,6 +344,8 @@ onMounted(() => {
 
 <style scoped>
 .create-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.recent-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.recent-head h3 { margin-bottom: 0; font-size: 17px; }
 @media (max-width: 400px) {
   .create-row { grid-template-columns: 1fr; gap: 0; }
 }

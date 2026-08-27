@@ -13,6 +13,9 @@ const testing = ref('') // '' | 'transcribe' | 'llm'
 const tTestResult = reactive({ cls: '', text: '' })
 const lTestResult = reactive({ cls: '', text: '' })
 
+// LLM 配置仅存本机浏览器，不写入数据库
+const LLM_KEY = 'litemeet.llm'
+
 onMounted(async () => {
   try {
     const cfg = await API.get('/config')
@@ -20,30 +23,40 @@ onMounted(async () => {
     form.transcribe.model = cfg.transcribe.model
     form.transcribe.language = cfg.transcribe.language || 'zh'
     form.transcribe.hasKey = !!cfg.transcribe.hasKey
-    form.llm.baseUrl = cfg.llm.baseUrl
-    form.llm.model = cfg.llm.model
-    form.llm.hasKey = !!cfg.llm.hasKey
+    // LLM 配置从 localStorage 加载
+    const llm = JSON.parse(localStorage.getItem(LLM_KEY) || '{}')
+    form.llm.baseUrl = llm.baseUrl || ''
+    form.llm.model = llm.model || ''
+    form.llm.hasKey = !!llm.apiKey
   } catch (e) {
     toast(e.message, 'error')
   }
 })
 
 async function save() {
-  const cfg = {
-    transcribe: { baseUrl: form.transcribe.baseUrl.trim(), model: form.transcribe.model.trim(), language: form.transcribe.language },
-    llm: { baseUrl: form.llm.baseUrl.trim(), model: form.llm.model.trim() }
+  const transcribeCfg = {
+    baseUrl: form.transcribe.baseUrl.trim(),
+    model: form.transcribe.model.trim(),
+    language: form.transcribe.language
   }
-  if (form.transcribe.apiKey.trim()) cfg.transcribe.apiKey = form.transcribe.apiKey.trim()
-  if (form.llm.apiKey.trim()) cfg.llm.apiKey = form.llm.apiKey.trim()
+  if (form.transcribe.apiKey.trim()) transcribeCfg.apiKey = form.transcribe.apiKey.trim()
 
   saving.value = true
   saveHint.value = ''
   try {
-    await API.post('/config', cfg)
+    // 转写配置存后端数据库（服务级共享）
+    await API.post('/config', { transcribe: transcribeCfg })
+    // LLM 配置存本机浏览器
+    const llmCfg = {
+      baseUrl: form.llm.baseUrl.trim(),
+      model: form.llm.model.trim(),
+      apiKey: form.llm.apiKey.trim()
+    }
+    localStorage.setItem(LLM_KEY, JSON.stringify(llmCfg))
     saveHint.value = '已保存 ' + new Date().toLocaleTimeString()
     toast('设置已保存', 'ok')
-    form.transcribe.hasKey = !!cfg.transcribe.apiKey
-    form.llm.hasKey = !!cfg.llm.apiKey
+    form.transcribe.hasKey = !!transcribeCfg.apiKey
+    form.llm.hasKey = !!llmCfg.apiKey
   } catch (e) {
     toast(e.message, 'error')
   } finally {
@@ -52,19 +65,31 @@ async function save() {
 }
 
 async function test(kind) {
-  const cfg = {
-    transcribe: { baseUrl: form.transcribe.baseUrl.trim(), model: form.transcribe.model.trim(), language: form.transcribe.language },
-    llm: { baseUrl: form.llm.baseUrl.trim(), model: form.llm.model.trim() }
+  const transcribeCfg = {
+    baseUrl: form.transcribe.baseUrl.trim(),
+    model: form.transcribe.model.trim(),
+    language: form.transcribe.language
   }
-  if (!form[kind].apiKey.trim()) delete cfg[kind].apiKey
-  try { await API.post('/config', cfg); } catch { /* 测试仍继续 */ }
+  if (form.transcribe.apiKey.trim()) transcribeCfg.apiKey = form.transcribe.apiKey.trim()
+  try { await API.post('/config', { transcribe: transcribeCfg }); } catch { /* 测试仍继续 */ }
 
   const res = kind === 'transcribe' ? tTestResult : lTestResult
   res.cls = ''
   res.text = '测试中…'
   testing.value = kind
   try {
-    const r = await API.post('/config/test', { kind })
+    let r
+    if (kind === 'transcribe') {
+      r = await API.post('/config/test', { kind })
+    } else {
+      // LLM 测试配置随请求体传入
+      const llmCfg = {
+        baseUrl: form.llm.baseUrl.trim(),
+        model: form.llm.model.trim()
+      }
+      if (form.llm.apiKey.trim()) llmCfg.apiKey = form.llm.apiKey.trim()
+      r = await API.post('/config/test', { kind, llm: llmCfg })
+    }
     res.cls = r.ok ? 'ok' : 'err'
     res.text = r.message
   } catch (e) {
@@ -155,7 +180,7 @@ async function test(kind) {
     <div class="card" style="margin-top:32px;padding:24px 28px">
       <h3 style="font-size:15px;margin-bottom:10px">关于隐私</h3>
       <p style="font-size:13px;color:var(--text-2);line-height:1.8">
-        轻会议 LiteMeet 基于 WebRTC 与 LiveKit 构建，为在线会议提供音视频转发、实时转写与 AI 纪要，无需安装，复制一条链接即可加入。会议记录、录音与配置保存在服务的 <code>data/</code> 目录。若你配置了远程 AI 服务，转写与纪要功能会将音频文本发送到该服务；指向服务本机环境时则不会外传。
+        轻会议 LiteMeet 基于 WebRTC 与 LiveKit 构建，为在线会议提供音视频转发、实时转写与 AI 纪要，无需安装，复制一条链接即可加入。会议记录、录音与转写配置保存在服务的 <code>data/</code> 目录；AI 摘要服务配置仅保存在你的浏览器本地，不会上传服务器。若你配置了远程 AI 服务，转写与纪要功能会将音频文本发送到该服务；指向服务本机环境时则不会外传。
       </p>
     </div>
   </main>

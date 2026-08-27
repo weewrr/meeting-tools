@@ -2,7 +2,7 @@
  * PCM 采集处理器：混合音频每累积 CHUNK 秒向主线程抛出一段 PCM
  * 用于实时转写切片（可独立解码的 WAV）
  */
-const CHUNK_SECONDS = 20;
+const CHUNK_SECONDS = 4;
 
 class PcmCollector extends AudioWorkletProcessor {
   constructor() {

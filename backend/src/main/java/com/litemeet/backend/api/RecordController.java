@@ -220,9 +220,16 @@ public class RecordController {
     // ---------- 生成 AI 摘要 ----------
 
     @PostMapping("/records/{id}/summary")
-    public ResponseEntity<?> summarize(@PathVariable String id) {
+    public ResponseEntity<?> summarize(@PathVariable String id,
+                                       @RequestBody(required = false) Map<String, Object> body) {
         Map<String, Object> record = store.getRecord(id);
         if (record == null) return notFound();
+        // LLM 配置由前端存于本机浏览器，生成纪要时随请求体传入
+        Map<String, Object> llm = extractLlm(body);
+        if (str(llm.get("baseUrl")).isEmpty() || str(llm.get("model")).isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "请在「设置」中配置 AI 摘要服务后再生成纪要"));
+        }
         StringBuilder sb = new StringBuilder();
         Object transcript = record.get("transcript");
         if (transcript instanceof List<?> list) {
@@ -235,10 +242,10 @@ public class RecordController {
                     .body(Map.of("error", "没有可用的文字记录，请先完成转写"));
         }
         try {
-            String content = ai.summarizeText(sb.toString(), store.configSection("llm"));
+            String content = ai.summarizeText(sb.toString(), llm);
             Map<String, Object> summary = new LinkedHashMap<>();
             summary.put("content", content);
-            summary.put("model", store.configSection("llm").get("model"));
+            summary.put("model", str(llm.get("model")));
             summary.put("generatedAt", new Date().toInstant().toString());
             return ResponseEntity.ok(store.updateRecord(id, Map.of("summary", summary)));
         } catch (Exception e) {
@@ -313,6 +320,17 @@ public class RecordController {
     }
 
     // ---------- 工具 ----------
+
+    /** 从请求体中提取 LLM 配置段（非空字段） */
+    private Map<String, Object> extractLlm(Map<String, Object> body) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        if (body != null && body.get("llm") instanceof Map<?, ?> src) {
+            for (Map.Entry<?, ?> e : src.entrySet()) {
+                if (e.getValue() != null) m.put(String.valueOf(e.getKey()), e.getValue());
+            }
+        }
+        return m;
+    }
 
     private Map<String, Object> appendTranscriptEntry(String id, long offset, String text) {
         return store.appendTranscript(id, entry(offset, text));

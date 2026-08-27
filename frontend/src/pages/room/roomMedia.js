@@ -706,6 +706,16 @@ export function initRoom() {
 
   let chunkIndex = 0;
 
+  // 过滤 whisper 对静音/噪声产生的无效输出（如 [BLANK_AUDIO]、纯空白、纯标点）
+  function isNoise(text) {
+    if (!text) return true;
+    const t = text.trim();
+    if (!t) return true;
+    if (/^\[[^\]]*\]$/.test(t)) return true;   // 仅方括号标记（[BLANK_AUDIO] 等）
+    if (/^[^\u4e00-\u9fa5A-Za-z0-9]{1,4}$/.test(t)) return true; // 纯标点/符号
+    return false;
+  }
+
   async function onPcmChunk({ pcm, sampleRate }) {
     if (!rec) return;
     const blob = pcmToWavBlob(pcm, sampleRate);
@@ -716,7 +726,7 @@ export function initRoom() {
       fd.append('audio', blob, `chunk_${idx}.wav`);
       const resp = await fetch(`${API_BASE}/api/records/${rec.id}/transcribe-chunk?offset=${offset}`, { method: 'POST', body: fd });
       const data = await resp.json();
-      if (data.text) {
+      if (data.text && !isNoise(data.text)) {
         appendSubtitle(data.text, offset);
         showLiveSubtitle(data.text);
       }
