@@ -67,7 +67,11 @@ async function genSummary() {
 }
 
 async function retranscribe() {
-  if (!confirm('将对完整录音重新转写，现有转写内容会被覆盖。继续？')) return
+  try {
+    await ElMessageBox.confirm('将对完整录音重新转写，现有转写内容会被覆盖。继续？', '重新转写', {
+      confirmButtonText: '继续', cancelButtonText: '取消', type: 'warning'
+    })
+  } catch { return }
   busyTranscribe.value = true
   toast('正在转写完整录音…')
   try {
@@ -97,7 +101,11 @@ function download() {
 }
 
 async function remove() {
-  if (!confirm('确定删除该会议记录及其录音？此操作不可恢复。')) return
+  try {
+    await ElMessageBox.confirm('确定删除该会议记录及其录音？此操作不可恢复。', '删除记录', {
+      confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning'
+    })
+  } catch { return }
   try {
     await API.del('/records/' + id)
     location.href = '/records.html'
@@ -119,7 +127,7 @@ onMounted(load)
     <template v-if="record">
       <div class="detail-head">
         <div style="flex:1;min-width:0">
-          <input v-model="title" class="d-title" placeholder="会议标题" @input="onTitleInput">
+          <el-input v-model="title" class="d-title-input" placeholder="会议标题" @input="onTitleInput" />
           <div class="detail-meta">
             {{ fmtDate(record.createdAt) }}
             {{ record.duration ? '· 时长 ' + fmtDuration(record.duration) : '' }}
@@ -129,10 +137,10 @@ onMounted(load)
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-shrink:0;align-items:flex-start">
-          <button v-if="canDownloadVideo || canDownloadAudio" class="btn small secondary" @click="download">{{ canDownloadVideo ? '下载录屏' : '下载录音' }}</button>
-          <button v-if="canDownloadAudio" class="btn small secondary" :disabled="busyTranscribe" @click="retranscribe">重新转写</button>
-          <button class="btn small" :disabled="busySummary" @click="genSummary">{{ record.summary ? '重新生成纪要' : '生成 AI 纪要' }}</button>
-          <button class="btn small danger" @click="remove">删除</button>
+          <el-button v-if="canDownloadVideo || canDownloadAudio" @click="download">{{ canDownloadVideo ? '下载录屏' : '下载录音' }}</el-button>
+          <el-button v-if="canDownloadAudio" :disabled="busyTranscribe" :loading="busyTranscribe" @click="retranscribe">重新转写</el-button>
+          <el-button type="success" :disabled="busySummary" :loading="busySummary" @click="genSummary">{{ record.summary ? '重新生成纪要' : '生成 AI 纪要' }}</el-button>
+          <el-button type="danger" plain @click="remove">删除</el-button>
         </div>
       </div>
 
@@ -141,32 +149,41 @@ onMounted(load)
       </div>
 
       <div class="detail-body">
-        <div>
-          <div class="segment-tabs">
-            <button :class="{ active: segment === 'transcript' }" @click="segment = 'transcript'">转写文字</button>
-            <button :class="{ active: segment === 'summary' }" @click="segment = 'summary'">AI 会议纪要</button>
-          </div>
-
-          <div v-show="segment === 'transcript'" class="card transcript-box">
-            <template v-if="record.transcript.length">
-              <div v-for="(seg, i) in record.transcript" :key="i" class="seg">
-                <span class="seg-time">{{ seg.offset ? fmtDuration(seg.offset) : fmtDate(seg.t) }}</span>{{ seg.text }}
+        <el-tabs v-model="segment" class="detail-tabs">
+          <el-tab-pane label="转写文字" name="transcript">
+            <div class="card transcript-box">
+              <template v-if="record.transcript.length">
+                <div v-for="(seg, i) in record.transcript" :key="i" class="seg">
+                  <span class="seg-time">{{ seg.offset ? fmtDuration(seg.offset) : fmtDate(seg.t) }}</span>{{ seg.text }}
+                </div>
+              </template>
+              <div v-else class="empty">
+                {{ record.audioFile ? '暂无转写内容，可点击右上角「重新转写」对录音进行转写' : '暂无转写内容' }}
               </div>
-            </template>
-            <div v-else class="empty">
-              {{ record.audioFile ? '暂无转写内容，可点击右上角「重新转写」对录音进行转写' : '暂无转写内容' }}
             </div>
-          </div>
-
-          <div v-show="segment === 'summary'" class="card summary-box">
-            <div v-if="record.summary">
-              <div v-html="summaryHtml"></div>
-              <div style="margin-top:24px;color:var(--text-3);font-size:12px">由 {{ record.summary.model }} 生成于 {{ fmtDate(record.summary.generatedAt) }}</div>
+          </el-tab-pane>
+          <el-tab-pane label="AI 会议纪要" name="summary">
+            <div class="card summary-box">
+              <div v-if="record.summary">
+                <div v-html="summaryHtml"></div>
+                <div style="margin-top:24px;color:var(--text-3);font-size:12px">由 {{ record.summary.model }} 生成于 {{ fmtDate(record.summary.generatedAt) }}</div>
+              </div>
+              <div v-else class="empty">尚未生成 AI 纪要。点击右上角「生成 AI 纪要」，将基于转写内容自动生成结构化纪要。</div>
             </div>
-            <div v-else class="empty">尚未生成 AI 纪要。点击右上角「生成 AI 纪要」，将基于转写内容自动生成结构化纪要。</div>
-          </div>
-        </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </template>
   </main>
 </template>
+
+<style scoped>
+.d-title-input :deep(.el-input__inner) {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  height: 40px;
+  line-height: 40px;
+}
+.detail-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
+</style>

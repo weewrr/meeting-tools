@@ -1,5 +1,15 @@
 /* 轻会议 LiteMeet - Vue 前端公共工具（ESM 版，原生 IIFE 版见 public/js/common.js） */
 
+/* 统一轻提示：接入 Element Plus ElMessage（由 unplugin-auto-import 自动引入并附带样式）。
+ * toast(msg)     → info
+ * toast(msg,'ok') → success
+ * toast(msg,'error'|'err') → error
+ * grouping 合并同屏重复提示，避免刷屏 */
+export function toast(message, type = '') {
+  const t = type === 'ok' ? 'success' : (type === 'error' || type === 'err') ? 'error' : 'info';
+  ElMessage({ message, type: t, grouping: true, duration: 2600 });
+}
+
 /* 后端地址解析（前后端分离部署）：
  * 优先级：URL 参数 ?backend= > 部署注入的 window.LM_BACKEND > 同源
  */
@@ -26,22 +36,7 @@ export const API = {
   del(path) { return this.request(path, { method: 'DELETE' }); }
 };
 
-export function toast(message, type = '') {
-  let wrap = document.querySelector('.toast-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'toast-wrap';
-    wrap.setAttribute('role', 'status');
-    wrap.setAttribute('aria-live', 'polite');
-    wrap.setAttribute('aria-atomic', 'true');
-    document.body.appendChild(wrap);
-  }
-  const el = document.createElement('div');
-  el.className = 'toast ' + type;
-  el.textContent = message;
-  wrap.appendChild(el);
-  setTimeout(() => el.remove(), 3600);
-}
+
 
 export function fmtTime(ts) {
   const d = new Date(ts);

@@ -7,7 +7,7 @@
 - **多人音视频会议**：基于 SFU（LiveKit）架构，单房间最多 50 人，高清编码（摄像头 2.5Mbps/30fps）
 - **屏幕共享**：含屏幕声音，多端自适应布局，支持铺满 / 适应切换与全屏
 - **会议录制**：两种模式——纯音频录音 / 录屏（视频 + 混合音频），结束后自动保存到本机并上传服务器供回放下载
-- **实时转写字幕**：会议中边说边转写，生成完整文字记录（需配置转写服务）
+- **实时转写字幕**：会议中边说边转写，生成完整文字记录（由本地 Whisper 转写服务提供，模型 / 密钥可在服务器管理器「Key 管理」与「转写服务」页配置）
 - **AI 智能纪要**：会后一键生成结构化纪要（要点、决定、待办）（需配置 LLM 服务）
 - **会议记录管理**：录音 / 录屏 / 转写 / 纪要统一管理，归属设备可见
 - **隐私安全**：数据只存本机，纯局域网直连，不依赖公网
@@ -62,32 +62,68 @@ meeting-tools/
 │   ├── public/              静态资源（css/js/vendor/livekit-client UMD）
 │   ├── index.html / room.html / records.html / record.html / settings.html  各页入口
 │   ├── vite.config.js       多页应用构建配置
-│   └── dist/                构建产物（start.bat 自动生成，不入库）
+│   └── dist/                构建产物（手动 npm run build 生成，不入库）
 ├── livekit/                 LiveKit 服务器（livekit-server.exe + livekit.yaml）
+├── transcribe-server/       本地语音转写网关（Python 标准库，端口 8300，驱动 whisper-server 引擎）
+├── Release/                 whisper.cpp 本地构建产物（whisper-server.exe 等，不入库，可用环境管理页下载）
 ├── tools/FrontendServer.java 可选的本机前端静态服务器
+├── server-manager/          服务器管理器（Python 图形界面：服务启停 / 环境自动下载 / 会议监听 / 日志）
 ├── data/                    运行时数据（录音 / 视频 / 证书 / 记录 / 配置）
-├── start.bat                一键启动脚本
+├── start.bat                启动服务器管理器
 └── README.md
 ```
 
 ## 环境要求
 
 - **Windows**（目标部署环境为局域网）
+- **Python 3.10+**（仅使用服务器管理器方式需要，含 tkinter）
 - **JDK 21+**（后端与前端服务器均依赖；[Adoptium](https://adoptium.net) 下载）
-- **Maven 3.6+**（仅首次构建后端需要，`start.bat` 会自动构建）
-- **Node.js 18+ 与 npm**（构建前端 Vue 工程所需；首次运行前执行 `npm install`，`start.bat` 会自动构建到 `frontend/dist/`）
+- **Maven 3.6+**（仅首次构建后端需要，管理器一键启动时会自动构建）
+- **Node.js 18+ 与 npm**（构建前端 Vue 工程所需；首次运行前执行 `npm install`，管理器会自动安装依赖并以 dev 模式启动）
 - **MySQL 8**：`127.0.0.1:3306`，用户 `root` / 密码 `root`（库 `litemeet` 自动创建，见 `application.yml`）
 - **Redis**：`127.0.0.1:6379`
 - **LiveKit**：需自行下载二进制到 `livekit/`（见下方「LiveKit 二进制」说明）
 - **防火墙放行**：TCP `7880`/`7881`、UDP `50000-60000`（媒体）、TCP `5678`/`5679`/`3000`/`3001`（服务）
 
+> 以上除 Windows / Python 外均可通过服务器管理器「环境管理」页自动下载安装，本机已有的环境直接设置路径即可。
+
 ## 快速开始
 
-1. **安装 LiveKit 二进制**：从 LiveKit 官方 [Releases](https://github.com/livekit/livekit/releases) 下载 Windows 版（`livekit-server.exe`），解压后放到项目 `livekit/` 目录（与 `livekit.yaml` 同级即可，`start.bat` 会直接运行它）。该二进制体积较大，未纳入 Git，需自行下载。
+### 方式一：服务器管理器（推荐，无需预装任何环境）
+
+克隆后只需 Python，其余环境（JDK / Maven / Node.js / MySQL / Redis / LiveKit）由管理器自动下载：
+
+1. **启动管理器**：双击根目录 `start.bat`（需要 [Python 3.10+](https://www.python.org/downloads/)，安装时勾选 tkinter）
+2. **安装环境**：进入「环境管理」页，未安装的组件点「下载安装」（自动装到 `server-manager\envs`，不污染系统）；
+   本机已装过的组件点「设置本地路径」直接指定即可
+3. **一键启动**：回到「首页」点「一键启动」——自动按依赖顺序启动 MySQL → Redis → LiveKit → 后端 → 前端 → 转写服务，
+   首次启动会自动 Maven 构建后端、npm 安装前端依赖、初始化 MySQL（root 密码自动设为 `root`）
+4. 打开 `http://localhost:5173` 即可使用
+
+> **转写服务（实时字幕）**：转写网关（端口 8300）随一键启动自动拉起。首次使用请到「环境管理」页下载
+> **Whisper Server** 引擎（或手动把 whisper.cpp 构建产物放入 `Release/`），再到「转写服务」页下载模型（如 `small`）
+> 并设为当前。会议房间开启「录音」即可实时转写字幕；访问密钥在「Key 管理」页生成。
+
+> 管理器以前端 **Vite 开发模式**运行（热更新）：改 `frontend/src` 下任意源码，浏览器即时生效。
+> API 与信令 WebSocket 由 Vite 代理转发到后端（5678）；局域网设备也可访问 `http://<本机IP>:5173`
+> （但 HTTP 非安全上下文，手机浏览器无法调用麦克风/摄像头）。
+> 手机需要完整音视频时，按下方「方式二」手动构建部署（HTTPS 5679）。
+
+### 方式二：命令行手动部署（本机已装好环境，供局域网 HTTPS 访问）
+
+1. **安装 LiveKit 二进制**：从 LiveKit 官方 [Releases](https://github.com/livekit/livekit/releases) 下载 Windows 版（`livekit-server.exe`），解压后放到项目 `livekit/` 目录（与 `livekit.yaml` 同级）。该二进制体积较大，未纳入 Git，需自行下载。
 2. **配置局域网 IP**：编辑 `livekit/livekit.yaml`，将 `rtc.node_ip` 改为本机 WLAN IPv4 地址
    （`ipconfig` 查看）。WiFi 被重新分配 IP 后需同步更新此值。
-3. **双击 `start.bat`**：自动清理残留进程 → 启动 LiveKit → 构建并启动后端 → 启动前端服务 → 打开浏览器。
-4. **本机访问**：`http://localhost:3000`（功能完整，localhost 即安全上下文）。
+3. **构建并启动**（依次执行）：
+
+   ```bat
+   cd backend && mvn -DskipTests package && cd ..
+   cd frontend && npm install && npm run build && cd ..
+   start "" livekit\livekit-server.exe --config livekit\livekit.yaml
+   start "" java -jar backend\target\litemeet-backend.jar
+   ```
+
+4. **本机访问**：`http://localhost:5679`（后端单端口托管 dist，功能完整）。
 5. **局域网设备访问**：手机 / 其他电脑打开 `https://<本机IP>:5679`
    （例如 `https://192.168.31.220:5679`），首次访问需在浏览器中"高级 → 继续访问"信任自签名证书。
 
@@ -106,7 +142,8 @@ meeting-tools/
 
 - **`livekit/livekit.yaml`**：媒体端口范围、房间人数上限、API Key/Secret、`node_ip`（重要，见快速开始）
 - **`backend/src/main/resources/application.yml`**：后端端口（5678）、HTTPS 端口（5679）、MySQL / Redis 连接、LiveKit 密钥与地址
-- **`data/config.json`**：转写（Whisper 兼容 API）与 LLM 服务的 `apiKey` / `baseUrl` / `model`，可在前端"设置"页填写与测试
+- **`transcribe-server/config.json`**：本地转写网关的密钥列表 / 限时开放时段 / 当前模型，由服务器管理器「Key 管理」「转写服务」页维护（模型文件在 `transcribe-server/models/`）
+- **`data/config.json`**：LLM 服务的 `apiKey` / `baseUrl` / `model`，可在前端"设置"页填写与测试；转写服务的连接信息（指向本地网关 `http://127.0.0.1:8300/v1`）也在此维护
 
 ## 常见问题
 
@@ -125,3 +162,5 @@ meeting-tools/
 | 3000 / 3001 | 独立前端服务（HTTP / HTTPS） |
 | 7880 | LiveKit 信令（WebSocket，经后端 `/livekit` 代理） |
 | 7881 / 50000-60000 | LiveKit 媒体（TCP 回退 / UDP） |
+| 8300 | 本地语音转写网关（Whisper 兼容 API，`/v1/audio/transcriptions`） |
+| 8301 | whisper-server 引擎（由转写网关按需拉起） |

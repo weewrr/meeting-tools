@@ -1,7 +1,7 @@
 package com.litemeet.backend.api;
 
 import com.litemeet.backend.ai.AiClient;
-import com.litemeet.backend.store.JsonStore;
+import com.litemeet.backend.store.JdbcRecordStore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,10 +16,10 @@ import java.util.Map;
 @RequestMapping("/api/config")
 public class ConfigController {
 
-    private final JsonStore store;
+    private final JdbcRecordStore store;
     private final AiClient ai;
 
-    public ConfigController(JsonStore store, AiClient ai) {
+    public ConfigController(JdbcRecordStore store, AiClient ai) {
         this.store = store;
         this.ai = ai;
     }

@@ -1913,6 +1913,7 @@ export function initRoom() {
   // ---------- 全屏：双击画面 / 画面右上角按钮 / 工具栏全屏按钮 ----------
   // 浏览器不支持 Element.requestFullscreen（如 iOS Safari）时，回退到应用内伪全屏
   let pseudoFsEl = null;
+  let fsRequesting = false; // 原生全屏请求在途标志：防重入，避免连点触发二次请求被拒而误叠加伪全屏
 
   function syncFsButton(on) {
     const btn = document.getElementById('btnFullscreen');
@@ -1957,20 +1958,38 @@ export function initRoom() {
   }
 
   function enterFullscreen(el) {
+    // 防重入：在途请求未落定时忽略新的进入请求，避免连点/双击触发两次 requestFullscreen，
+    // 第二次请求被浏览器拒绝(AbortError)而误回退到伪全屏，导致真实全屏退出失效。
+    if (fsRequesting || document.fullscreenElement === el || document.webkitFullscreenElement === el) return;
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
     if (req) {
+      fsRequesting = true;
       try {
         const p = req.call(el);
-        if (p && p.catch) { p.catch(() => enterPseudoFullscreen(el)); return; }
+        if (p && p.catch) {
+          p.finally(() => { fsRequesting = false; });
+          // 仅当确实未进入原生全屏时才回退伪全屏
+          p.catch(() => { if (!document.fullscreenElement) enterPseudoFullscreen(el); });
+          return;
+        }
+        fsRequesting = false;
         return;
       } catch { /* 走到下方伪全屏 */ }
+      fsRequesting = false;
     }
     enterPseudoFullscreen(el);
   }
   function exitFullscreen() {
-    if (pseudoFsEl) { exitPseudoFullscreen(); return; }
+    // 先清理伪全屏，再无条件发起原生退出：
+    // 双击进入全屏时可能叠加了伪全屏，若只清伪全屏就 return，真实全屏会退不出去（只能 ESC）。
+    if (pseudoFsEl) exitPseudoFullscreen();
     const ex = document.exitFullscreen || document.webkitExitFullscreen;
-    if (ex) { try { ex(); } catch { /* 忽略 */ } }
+    if (ex) {
+      try {
+        const p = ex.call(document);
+        if (p && p.catch) p.catch(() => {});
+      } catch { /* 忽略 */ }
+    }
   }
   // 已全屏则退出，否则进入（画面全屏可点击画面自身再次退出）
   function toggleFullscreen(el) {
@@ -2011,6 +2030,7 @@ export function initRoom() {
     else enterFullscreen(document.documentElement);
   });
   document.addEventListener('fullscreenchange', () => {
+    fsRequesting = false; // 兜底：全屏状态一旦变化即清除在途标志
     const on = !!document.fullscreenElement;
     syncFsButton(on);
     document.querySelectorAll('.tile-fs').forEach(b => {

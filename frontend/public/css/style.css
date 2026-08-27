@@ -1577,3 +1577,60 @@ body.room { background: #0a0c13; color: #e7eaf3; }
   .room-input-group .btn { width: 100%; }
   .video-grid.screen-mode { grid-template-rows: minmax(0, 1fr) 56px; grid-auto-rows: 56px; }
 }
+
+/* ============================================================
+   LiteMeet V2 · Element Plus 主题对齐
+   最小化差异：继承靛蓝品牌色与圆角/字体，融入既有视觉语言
+   ============================================================ */
+:root {
+  --el-color-primary: #6366f1;
+  --el-color-primary-dark-2: #4f46e5;
+  --el-color-primary-light-3: #a5b4fc;
+  --el-color-primary-light-5: #c7d2fe;
+  --el-color-primary-light-7: #e0e7ff;
+  --el-color-primary-light-8: #eef2ff;
+  --el-color-primary-light-9: #f4f6ff;
+  --el-color-success: #10b981;
+  --el-color-warning: #f59e0b;
+  --el-color-danger: #ef4444;
+  --el-color-error: #ef4444;
+  --el-color-info: #64748b;
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-font-family: var(--font);
+  --el-text-color-primary: #0f172a;
+  --el-text-color-regular: #334155;
+  --el-text-color-secondary: #64748b;
+  --el-border-color: #e6e9f0;
+  --el-border-color-light: #e9edf4;
+  --el-border-color-lighter: #f0f2f7;
+  --el-fill-color-blank: #fff;
+  --el-bg-color-page: var(--bg);
+}
+/* ElMessage 已在房间深色页使用：浅色语义图标保持可读 */
+body.room {
+  --el-bg-color-overlay: #1c2130;
+  --el-box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+}
+/* 深色房间里的 ElMessage 文字用浅色，避免黑底黑字 */
+body.room .el-message { --el-text-color-primary: #e8eaf0; }
+
+/* ---------- 主页接入 Element Plus 微调 ---------- */
+.room-input-group { gap: 10px; }
+.room-input-group .el-button { flex-shrink: 0; }
+.room-codes { flex: 1; }
+.room-codes .el-input__inner {
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 4px;
+  font-weight: 700;
+  text-align: center;
+  font-size: 20px;
+}
+/* el-form-item 顶对齐标签：与旧 .field 视觉一致 */
+.join-card .el-form-item { margin-bottom: 20px; }
+.join-card .el-form-item__label { font-weight: 600; }
+.room-input-group .el-form-item__content { align-items: center; }
+.el-dialog { border-radius: 18px; }
+.el-message { border-radius: 12px; }

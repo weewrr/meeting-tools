@@ -17,6 +17,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -474,6 +475,57 @@ public class SignalWebSocketHandler extends TextWebSocketHandler {
     }
 
     // ---------- 房间工具 ----------
+
+    /**
+     * 当前活跃会议快照（供监控 REST API 使用）：
+     * 房间号 / 标题 / 开始时间 / 配置 / 参会人（含角色与音视频状态）
+     */
+    public List<Map<String, Object>> activeMeetings() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Map.Entry<String, Room> e : rooms.entrySet()) {
+            Room room = e.getValue();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("roomId", e.getKey());
+            m.put("title", room.title == null ? "" : room.title);
+            m.put("createdAt", room.createdAt == null ? 0L : room.createdAt);
+            m.put("locked", room.locked);
+            m.put("muteLocked", room.muteLocked);
+            m.put("maxPeers", room.maxPeers);
+            m.put("durationMinutes", room.durationMinutes);
+            m.put("deadline", room.deadline);
+            List<Map<String, Object>> peers = new ArrayList<>();
+            String ownerName = "";
+            String hostName = "";
+            synchronized (room) {
+                for (Peer p : room.peers.values()) {
+                    Map<String, Object> pm = new LinkedHashMap<>();
+                    pm.put("id", p.id);
+                    pm.put("name", p.name);
+                    pm.put("audio", p.audio);
+                    pm.put("video", p.video);
+                    pm.put("screen", p.screen);
+                    if (p.id.equals(room.ownerId)) {
+                        pm.put("role", "owner");
+                        ownerName = p.name;
+                    } else if (p.id.equals(room.hostId)) {
+                        pm.put("role", "host");
+                        hostName = p.name;
+                    } else {
+                        pm.put("role", "member");
+                    }
+                    peers.add(pm);
+                }
+            }
+            m.put("ownerName", ownerName);
+            m.put("hostName", hostName);
+            m.put("participantCount", peers.size());
+            m.put("peers", peers);
+            list.add(m);
+        }
+        // 按开始时间排序：先开始的在前
+        list.sort(Comparator.comparingLong(m -> (long) m.get("createdAt")));
+        return list;
+    }
 
     /** 记录已结束会议号：Redis 带 TTL 立即生效（到期自动释放）+ MySQL 持久化（重启恢复） */
     private void markRoomEnded(String roomId, String endedBy, String reason) {

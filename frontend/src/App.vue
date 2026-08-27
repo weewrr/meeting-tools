@@ -11,6 +11,9 @@ const cfgDur = ref(60)
 const cfgExpire = ref('remind')
 const recent = ref([])
 
+// 订阅房间号跟随输入实时更新显示值（大写）
+const roomDisplay = ref('')
+
 let composing = false
 
 function onNameInput(e) {
@@ -33,6 +36,7 @@ function sanitizeRoom() {
   }
   // 会议号为 XXXX-XXXX 格式，最多 9 个字符；残留非法多出的部分截断
   roomId.value = v.slice(0, 9)
+  roomDisplay.value = roomId.value
 }
 
 function enterRoom(id, opts = {}) {
@@ -41,17 +45,6 @@ function enterRoom(id, opts = {}) {
     toast('请先输入昵称', 'error')
     focusName()
     return
-  }
-  // 非安全上下文（如局域网 IP 的 http）：浏览器会禁用摄像头/麦克风/屏幕共享
-  if (!window.isSecureContext) {
-    const ok = confirm(
-      '当前通过非安全地址访问，浏览器将禁用摄像头、麦克风和屏幕共享，只能以旁听模式加入。\n\n' +
-      '· 本机使用：请改用 http://localhost:3000\n' +
-      '· 其他设备：请使用 https://本机IP:5679 地址\n' +
-      '  （首次访问需在浏览器中点击"高级 → 继续前往"信任证书）\n\n' +
-      '是否仍以旁听模式加入？'
-    )
-    if (!ok) return
   }
   setUserName(n)
   const params = new URLSearchParams({ room: id, name: n })
@@ -68,6 +61,22 @@ function enterRoom(id, opts = {}) {
 const nameRef = ref(null)
 function focusName() { nameRef.value && nameRef.value.focus() }
 
+// 非安全上下文提示（进入前）
+function ensureSecureThenEnter() {
+  if (!window.isSecureContext) {
+    ElMessageBox.confirm(
+      '当前通过非安全地址访问，浏览器将禁用摄像头、麦克风和屏幕共享，只能以旁听模式加入。' +
+      '\n\n· 本机使用：请改用 http://localhost:3000' +
+      '\n· 其他设备：请使用 https://本机IP:5679 地址' +
+      '\n  （首次访问需在浏览器中点击"高级 → 继续前往"信任证书）',
+      '非安全地址',
+      { confirmButtonText: '仍以旁听模式加入', cancelButtonText: '取消', type: 'warning' }
+    ).then(() => enterRoom(roomId.value.trim())).catch(() => {})
+    return
+  }
+  enterRoom(roomId.value.trim())
+}
+
 function join() {
   const id = roomId.value.trim().toUpperCase()
   if (!id) {
@@ -78,7 +87,7 @@ function join() {
     toast('会议号为 4-16 位字母 / 数字 / 短横线', 'error')
     return
   }
-  enterRoom(id)
+  ensureSecureThenEnter()
 }
 
 function openCreate() {
@@ -93,8 +102,8 @@ function closeCreate() { modalOpen.value = false; }
 function submitCreate() {
   const title = cfgTitle.value.trim()
   if (!title) { toast('请填写会议名称', 'error'); return }
-  const maxPeers = Math.max(1, Math.min(50, parseInt(cfgMax.value, 10) || 8))
-  const dur = Math.max(1, Math.min(1440, parseInt(cfgDur.value, 10) || 60))
+  const maxPeers = Math.max(1, Math.min(50, Number(cfgMax.value) || 8))
+  const dur = Math.max(1, Math.min(1440, Number(cfgDur.value) || 60))
   // 生成形如 8F3K-2Q9D 的会议号
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const pick = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -139,6 +148,7 @@ function openRecent(r) {
     location.href = '/record.html?id=' + encodeURIComponent(r.rec.id)
   } else {
     roomId.value = r.roomId
+    roomDisplay.value = r.roomId
     toast('会议号已填入，点击「加入会议」即可重新进入', 'ok')
   }
 }
@@ -146,7 +156,7 @@ function openRecent(r) {
 // 分享链接进入（?room=会议号）：自动填入会议号
 const presetRoom = getParam('room')
 name.value = getUserName()
-if (presetRoom) roomId.value = presetRoom.trim().toUpperCase()
+if (presetRoom) { roomId.value = presetRoom.trim().toUpperCase(); roomDisplay.value = roomId.value }
 onMounted(() => {
   loadRecent()
   if (presetRoom) focusName()
@@ -191,29 +201,30 @@ onMounted(() => {
       <div class="card join-card">
         <h2>开始会议</h2>
         <p class="desc">输入昵称后即可创建或加入会议，无需注册账号</p>
-        <div class="field">
-          <label>我的昵称</label>
-          <input ref="nameRef" v-model="name" class="input" placeholder="例如：张三" maxlength="32" @input="onNameInput">
-        </div>
-        <div class="field">
-          <label>会议号</label>
-          <div class="room-input-group">
-            <input v-model="roomId" class="input" placeholder="XXXX-XXXX" maxlength="16" autocomplete="off"
-              autocapitalize="characters" autocorrect="off" spellcheck="false"
-              @keydown.enter="join"
-              @compositionstart="onRoomCompositionStart"
-              @compositionend="onRoomCompositionEnd"
-              @input="onRoomInput">
-            <button class="btn" @click="join">加入会议</button>
-          </div>
-          <div class="hint">加入已有会议请输入对方分享的会议号</div>
-        </div>
-        <button class="btn secondary" style="width:100%" @click="openCreate">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+
+        <el-form label-position="top" @submit.prevent>
+          <el-form-item label="我的昵称">
+            <el-input ref="nameRef" v-model="name" size="large" placeholder="例如：张三" maxlength="32"
+              clearable @input="onNameInput" @keydown.enter="join" />
+          </el-form-item>
+
+          <el-form-item label="会议号">
+            <div class="room-input-group">
+              <el-input v-model="roomId" size="large" placeholder="XXXX-XXXX"
+                autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+                class="room-codes" @keydown.enter="join"
+                @compositionstart="onRoomCompositionStart"
+                @compositionend="onRoomCompositionEnd"
+                @input="onRoomInput" />
+              <el-button type="primary" size="large" @click="join">加入会议</el-button>
+            </div>
+            <div class="hint">加入已有会议请输入对方分享的会议号</div>
+          </el-form-item>
+        </el-form>
+
+        <el-button type="primary" plain size="large" style="width:100%;margin-top:4px" @click="openCreate">
           创建新会议（设置名称 / 人数 / 时长）
-        </button>
+        </el-button>
       </div>
     </div>
 
@@ -267,49 +278,55 @@ onMounted(() => {
     <div class="recent-list">
       <h3>最近会议记录</h3>
       <div class="card">
-        <div v-if="!recent.length" class="empty">暂无会议记录</div>
-        <div v-for="r in recent" :key="r.roomId" class="record-row" @click="openRecent(r)">
-          <div style="flex:1;min-width:0">
-            <div class="r-title">会议 {{ r.roomId }}</div>
-            <div class="r-meta">{{ fmtDate(r.joinedAt) }} · {{ r.name || '我' }}</div>
+        <el-empty v-if="!recent.length" description="暂无会议记录" :image-size="90" />
+        <div v-else>
+          <div v-for="r in recent" :key="r.roomId" class="record-row" @click="openRecent(r)">
+            <div style="flex:1;min-width:0">
+              <div class="r-title">会议 {{ r.roomId }}</div>
+              <div class="r-meta">{{ fmtDate(r.joinedAt) }} · {{ r.name || '我' }}</div>
+            </div>
+            <el-tag v-if="r.rec" :type="r.rec.mode === 'video' ? 'primary' : 'success'" effect="light" round size="small">
+              {{ r.rec.mode === 'video' ? '有录屏' : '有录音' }}
+            </el-tag>
+            <el-tag v-else type="success" effect="light" round size="small">已加入</el-tag>
           </div>
-          <span v-if="r.rec" class="badge blue">{{ r.rec.mode === 'video' ? '有录屏' : '有录音' }}</span>
-          <span v-else class="badge green">已加入</span>
         </div>
       </div>
     </div>
 
     <!-- 创建会议设置弹窗 -->
-    <div v-if="modalOpen" class="room-mask" @click.self="closeCreate" @keydown.esc="closeCreate" tabindex="-1">
-      <div class="room-modal" role="dialog" aria-modal="true" aria-labelledby="createTitle">
-        <div class="rm-title">
-          <span id="createTitle">创建新会议</span>
-          <button type="button" class="share-close" @click="closeCreate" aria-label="关闭">×</button>
+    <el-dialog v-model="modalOpen" title="创建新会议" width="420px" append-to-body
+      :close-on-click-modal="true" @closed="closeCreate">
+      <el-form label-position="top" @submit.prevent>
+        <el-form-item label="会议名称">
+          <el-input v-model="cfgTitle" maxlength="64" placeholder="例如：产品评审会" />
+        </el-form-item>
+        <div class="create-row">
+          <el-form-item label="最大人数（1–50）">
+            <el-input-number v-model="cfgMax" :min="1" :max="50" style="width:100%" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="会议时长（分钟）">
+            <el-input-number v-model="cfgDur" :min="1" :max="1440" style="width:100%" controls-position="right" />
+          </el-form-item>
         </div>
-        <div class="rm-field">
-          <span>会议名称</span>
-          <input v-model="cfgTitle" class="rename-input" maxlength="64" placeholder="例如：产品评审会">
-        </div>
-        <div class="rm-field">
-          <span>最大人数（1–50）</span>
-          <input v-model="cfgMax" class="rename-input" type="number" min="1" max="50">
-        </div>
-        <div class="rm-field">
-          <span>会议时长（分钟）</span>
-          <input v-model="cfgDur" class="rename-input" type="number" min="1" max="1440">
-        </div>
-        <div class="rm-field">
-          <span>时长到期后</span>
-          <select v-model="cfgExpire" class="rename-input">
-            <option value="remind">仅提醒，不结束</option>
-            <option value="auto">自动结束会议</option>
-          </select>
-        </div>
-        <div class="rm-actions">
-          <button type="button" class="btn" @click="closeCreate">取消</button>
-          <button type="button" class="btn primary" @click="submitCreate">创建并进入</button>
-        </div>
-      </div>
-    </div>
+        <el-form-item label="时长到期后">
+          <el-radio-group v-model="cfgExpire">
+            <el-radio-button value="remind">仅提醒，不结束</el-radio-button>
+            <el-radio-button value="auto">自动结束会议</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeCreate">取消</el-button>
+        <el-button type="primary" @click="submitCreate">创建并进入</el-button>
+      </template>
+    </el-dialog>
   </main>
 </template>
+
+<style scoped>
+.create-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 400px) {
+  .create-row { grid-template-columns: 1fr; gap: 0; }
+}
+</style>

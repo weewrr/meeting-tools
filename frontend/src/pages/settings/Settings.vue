@@ -94,28 +94,28 @@ async function test(kind) {
         <p class="sc-desc">用于实时字幕与录音转写。任何兼容 <code>POST /v1/audio/transcriptions</code> 的服务均可。</p>
         <div class="field">
           <label>服务地址（Base URL）</label>
-          <input v-model="form.transcribe.baseUrl" class="input" placeholder="https://api.openai.com/v1">
+          <el-input v-model="form.transcribe.baseUrl" placeholder="https://api.openai.com/v1" clearable />
           <div class="hint">以 /v1 结尾。本地部署示例：http://localhost:8000/v1</div>
         </div>
         <div class="field">
           <label>API Key</label>
-          <input v-model="form.transcribe.apiKey" class="input" :placeholder="form.transcribe.hasKey ? '已保存（输入可覆盖）' : 'sk-…'" type="password" autocomplete="new-password">
+          <el-input v-model="form.transcribe.apiKey" :placeholder="form.transcribe.hasKey ? '已保存（输入可覆盖）' : 'sk-…'" type="password" show-password autocomplete="new-password" />
           <div class="hint">本地服务无需 Key 可留空</div>
         </div>
         <div class="field">
           <label>模型</label>
-          <input v-model="form.transcribe.model" class="input" placeholder="whisper-1">
+          <el-input v-model="form.transcribe.model" placeholder="whisper-1" clearable />
           <div class="hint">OpenAI：whisper-1 · Groq：whisper-large-v3 · 本地部署以实际模型名为准</div>
         </div>
         <div class="field">
           <label>识别语言</label>
-          <select v-model="form.transcribe.language" class="input">
-            <option value="zh">中文</option>
-            <option value="en">英文</option>
-            <option value="auto">自动检测</option>
-          </select>
+          <el-select v-model="form.transcribe.language" style="width:100%">
+            <el-option value="zh" label="中文" />
+            <el-option value="en" label="英文" />
+            <el-option value="auto" label="自动检测" />
+          </el-select>
         </div>
-        <button class="btn secondary" :disabled="testing === 'transcribe'" @click="test('transcribe')">测试连接</button>
+        <el-button :danger="tTestResult.cls === 'err'" @click="test('transcribe')" :loading="testing === 'transcribe'">测试连接</el-button>
         <div class="test-result" :class="tTestResult.cls">{{ tTestResult.text }}</div>
       </div>
 
@@ -129,26 +129,26 @@ async function test(kind) {
         <p class="sc-desc">用于生成会议纪要。任何兼容 <code>POST /v1/chat/completions</code> 的服务均可。</p>
         <div class="field">
           <label>服务地址（Base URL）</label>
-          <input v-model="form.llm.baseUrl" class="input" placeholder="https://api.openai.com/v1">
+          <el-input v-model="form.llm.baseUrl" placeholder="https://api.openai.com/v1" clearable />
           <div class="hint">本地 Ollama 示例：http://localhost:11434/v1</div>
         </div>
         <div class="field">
           <label>API Key</label>
-          <input v-model="form.llm.apiKey" class="input" :placeholder="form.llm.hasKey ? '已保存（输入可覆盖）' : 'sk-…'" type="password" autocomplete="new-password">
+          <el-input v-model="form.llm.apiKey" :placeholder="form.llm.hasKey ? '已保存（输入可覆盖）' : 'sk-…'" type="password" show-password autocomplete="new-password" />
           <div class="hint">本地服务无需 Key 可留空</div>
         </div>
         <div class="field">
           <label>模型</label>
-          <input v-model="form.llm.model" class="input" placeholder="gpt-4o-mini">
+          <el-input v-model="form.llm.model" placeholder="gpt-4o-mini" clearable />
           <div class="hint">示例：gpt-4o-mini / deepseek-chat / qwen2.5:7b</div>
         </div>
-        <button class="btn secondary" :disabled="testing === 'llm'" @click="test('llm')">测试连接</button>
+        <el-button :danger="lTestResult.cls === 'err'" @click="test('llm')" :loading="testing === 'llm'">测试连接</el-button>
         <div class="test-result" :class="lTestResult.cls">{{ lTestResult.text }}</div>
       </div>
     </div>
 
     <div style="margin-top:24px;display:flex;gap:12px">
-      <button class="btn" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button>
+      <el-button type="primary" :disabled="saving" :loading="saving" @click="save">{{ saving ? '保存中…' : '保存设置' }}</el-button>
       <span style="align-self:center;color:var(--text-3);font-size:13px">{{ saveHint }}</span>
     </div>
 

@@ -1,7 +1,7 @@
 package com.litemeet.backend.api;
 
 import com.litemeet.backend.ai.AiClient;
-import com.litemeet.backend.store.JsonStore;
+import com.litemeet.backend.store.JdbcRecordStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,10 +19,10 @@ import java.util.*;
 @RequestMapping("/api")
 public class RecordController {
 
-    private final JsonStore store;
+    private final JdbcRecordStore store;
     private final AiClient ai;
 
-    public RecordController(JsonStore store, AiClient ai) {
+    public RecordController(JdbcRecordStore store, AiClient ai) {
         this.store = store;
         this.ai = ai;
     }
@@ -70,7 +70,9 @@ public class RecordController {
             @PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
         Map<String, Object> patch = new LinkedHashMap<>();
         if (body != null) {
-            for (String k : List.of("title", "endedAt", "duration", "status")) {
+            // 透传存储层支持的全部字段（含 summary/transcript 等嵌套对象）
+            for (String k : List.of("title", "endedAt", "duration", "status",
+                    "audioFile", "videoFile", "transcript", "summary")) {
                 if (body.containsKey(k)) patch.put(k, body.get(k));
             }
         }

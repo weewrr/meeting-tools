@@ -19,5 +19,19 @@ frontend/*.tsbuildinfo
 # 原生前端备份（迁移至 Vue+Vite，保留作回退参考，不入库）
 frontend.native/
 
-# LiveKit 服务器二进制（大文件，不入库；按 README 下载后放入 livekit/）
+# LiveKit 服务器二进制（大文件，不入库；由 server-manager 下载或手动放入 livekit/）
 livekit/livekit-server.exe
+
+# 服务器管理器：本地配置 / 下载的环境 / 运行数据（不入库）
+server-manager/config.json
+server-manager/envs/
+server-manager/downloads/
+server-manager/data/
+__pycache__/
+
+# 转写服务：模型大文件与本地密钥配置（不入库）
+transcribe-server/models/
+transcribe-server/config.json
+
+# whisper.cpp 本地构建产物（不入库；可用「环境管理」页下载，或手动放入）
+Release/
