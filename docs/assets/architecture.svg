@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="480" viewBox="0 0 1040 480" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0d9488"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="1040" height="480" fill="#fafafa"/>
+  <text x="520" y="26" font-size="16" font-weight="700" fill="#0f172a" text-anchor="middle">LiteMeet architecture</text>
+
+  <!-- Browser -->
+  <rect x="40" y="80" width="260" height="120" rx="10" fill="#ffffff" stroke="#0d9488" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="60" y="110" font-size="14" font-weight="700" fill="#0f172a">PC / Phone (browser)</text>
+  <text x="60" y="140" font-size="12.5" fill="#475569">· mic · camera · screen sharing</text>
+  <text x="60" y="166" font-size="12.5" fill="#475569">· joins over HTTPS (trusted cert)</text>
+
+  <!-- Backend -->
+  <rect x="460" y="40" width="540" height="230" rx="10" fill="#ffffff" stroke="#0d9488" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="480" y="72" font-size="14" font-weight="700" fill="#0f172a">Spring Boot backend — single port :5679</text>
+  <text x="480" y="102" font-size="12.5" fill="#475569">· REST API</text>
+  <text x="480" y="128" font-size="12.5" fill="#475569">· WS signaling /ws</text>
+  <text x="480" y="154" font-size="12.5" fill="#475569">· LiveKit WSS proxy /livekit</text>
+  <text x="480" y="180" font-size="12.5" fill="#475569">· Static page hosting</text>
+  <text x="480" y="206" font-size="12.5" fill="#475569">· JWT token issuance</text>
+
+  <!-- LiveKit SFU -->
+  <rect x="340" y="360" width="360" height="90" rx="10" fill="#ffffff" stroke="#0d9488" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="360" y="392" font-size="14" font-weight="700" fill="#0f172a">LiveKit SFU :7880</text>
+  <text x="360" y="418" font-size="12.5" fill="#475569">media relay · single-layer encoding · low latency</text>
+  <text x="360" y="440" font-size="11.5" fill="#64748b">media ports 7881 / UDP 50000-60000</text>
+
+  <!-- A: browser -> backend -->
+  <line x1="300" y1="140" x2="458" y2="140" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="380" y="118" font-size="11" font-weight="600" fill="#0d9488" text-anchor="middle">HTTPS :5679 · same-origin</text>
+  <text x="380" y="162" font-size="10" fill="#64748b" text-anchor="middle">page · API · signaling WS · LiveKit proxy</text>
+
+  <!-- B: browser -> SFU -->
+  <line x1="170" y1="200" x2="400" y2="358" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="286" y="272" font-size="11" font-weight="600" fill="#0d9488" text-anchor="middle">WebRTC media · UDP 50000-60000</text>
+  <text x="286" y="290" font-size="10" fill="#64748b" text-anchor="middle">bypasses the backend</text>
+
+  <!-- C: backend -> SFU -->
+  <line x1="700" y1="270" x2="622" y2="358" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="720" y="306" font-size="11" font-weight="600" fill="#0d9488">relay media</text>
+  <text x="720" y="324" font-size="10" fill="#64748b">via /livekit WSS</text>
+</svg>

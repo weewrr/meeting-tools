@@ -36,20 +36,7 @@ A **local-first** multi-party video conference and smart meeting-minutes tool. N
 | Storage | MySQL + Redis + local directory | Meeting lifecycle / recordings / transcripts / minutes / transcription config (MySQL), ended-room code TTL (Redis), recording & video files / certs (`data/`), LLM config (browser local) |
 | Frontend server | `tools/FrontendServer.java` (single-file JDK 21) | Optional standalone static server (HTTP 3000 / HTTPS 3001) |
 
-```
-┌─────────────┐   HTTPS 5679 (single-port same-origin: page / API / signaling WS / LiveKit proxy)
-│  PC / Phone  │ ─────────────────────────────────────────────► ┌──────────────────┐
-│  (browser)   │                                                 │  Spring Boot backend │
-└─────────────┘                                                 │  · REST API        │
-      │                                                         │  · WS signaling /ws │
-      └────────────── WebRTC media (UDP 50000-60000) ────────►  │  · LiveKit WSS /livekit │
-                                                                 │  · static page hosting │
-                                                                 └────────┬─────────┘
-                                                                          │ relay media
-                                                              ┌──────────▼─────────┐
-                                                              │  LiveKit SFU 7880    │
-                                                              └────────────────────┘
-```
+![LiteMeet architecture](docs/assets/architecture.svg)
 
 ## Directory Structure
 
