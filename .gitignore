@@ -8,9 +8,6 @@ data/
 
 *.log
 
-# Trae 本地会话 / 配置
-.trae/
-
 # 前端构建产物 / 依赖
 frontend/dist/
 frontend/node_modules/
